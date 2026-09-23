@@ -12,6 +12,8 @@ const ui = {
 let sessions = [];
 let selected = null;
 let segments = [];
+let renderedSessionId = null;
+let renderedSegmentCount = 0;
 
 const statusText = { recording: "识别中", completed: "已完成", interrupted: "已中断", failed: "启动失败" };
 const dateFormat = new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" });
@@ -58,12 +60,16 @@ function renderSessionList() {
 
 function renderSegments() {
   const query = ui.textSearch.value.trim().toLowerCase();
+  const sessionChanged = renderedSessionId !== selected?.id;
+  const hasNewContent = !sessionChanged && segments.length > renderedSegmentCount;
   const visible = segments.filter((segment) => segment.text.toLowerCase().includes(query));
   if (!visible.length) {
     const empty = document.createElement("p");
     empty.className = "no-results";
     empty.textContent = segments.length ? "没有匹配的文字" : "这条记录还没有最终识别结果";
     ui.segments.replaceChildren(empty);
+    renderedSessionId = selected?.id || null;
+    renderedSegmentCount = segments.length;
     return;
   }
   ui.segments.replaceChildren(...visible.map((segment) => {
@@ -78,6 +84,13 @@ function renderSegments() {
     row.append(time, text);
     return row;
   }));
+  renderedSessionId = selected?.id || null;
+  renderedSegmentCount = segments.length;
+  if (!query && (sessionChanged || hasNewContent)) {
+    requestAnimationFrame(() => {
+      ui.detail.scrollTop = ui.detail.scrollHeight;
+    });
+  }
 }
 
 async function selectSession(id) {
