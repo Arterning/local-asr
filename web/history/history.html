@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>识别记录 · Live Subtitle</title>
+    <link rel="stylesheet" href="history.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div><p>LOCAL ASR</p><h1>识别记录</h1></div>
+      <button id="clearButton" class="danger ghost" type="button">清空历史</button>
+    </header>
+    <main class="layout">
+      <aside class="sidebar">
+        <input id="sessionSearch" class="search" type="search" placeholder="搜索视频标题">
+        <div id="sessionList" class="session-list"></div>
+      </aside>
+      <section id="emptyState" class="empty-state">
+        <div><h2>还没有识别记录</h2><p>在视频页面开始识别后，最终文本会自动保存在这里。</p></div>
+      </section>
+      <section id="detail" class="detail" hidden>
+        <div class="detail-head">
+          <div class="title-area">
+            <input id="titleInput" class="title-input" aria-label="记录标题">
+            <div class="meta"><span id="platform"></span><span id="createdAt"></span><span id="status"></span></div>
+          </div>
+          <div class="head-actions">
+            <button id="sourceButton" class="ghost" type="button">打开原视频</button>
+            <button id="deleteButton" class="danger ghost" type="button">删除</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input id="textSearch" class="search" type="search" placeholder="搜索当前记录的文字">
+          <button id="copyAllButton" class="ghost" type="button">复制全部</button>
+          <div class="download-menu">
+            <button class="download" data-format="txt" type="button">TXT</button>
+            <button class="download" data-format="srt" type="button">SRT</button>
+            <button class="download" data-format="vtt" type="button">VTT</button>
+            <button class="download" data-format="json" type="button">JSON</button>
+          </div>
+        </div>
+        <p class="timestamp-note">SRT/VTT 时间根据视频播放位置生成，可能存在少量识别延迟。</p>
+        <div id="segments" class="segments"></div>
+      </section>
+    </main>
+    <script type="module" src="history.js"></script>
+  </body>
+</html>

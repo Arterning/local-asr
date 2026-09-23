@@ -24,6 +24,8 @@ input[type="url"] { width: 100%; margin-top: 8px; border: 0; outline: 0; backgro
 .primary:hover { background: #788aff; }
 .primary.stop { background: #e05265; box-shadow: 0 8px 26px rgb(224 82 101 / 18%); }
 .primary:disabled { cursor: wait; opacity: .65; }
+.secondary { width: 100%; border: 1px solid #303746; border-radius: 11px; padding: 10px; margin: 0 0 4px; background: #151923; color: #cdd3df; cursor: pointer; font-size: 12px; }
+.secondary:hover { border-color: #5969c9; color: white; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; }
 .text-button { border: 0; padding: 0; background: none; color: #8799ff; cursor: pointer; font-size: 12px; }
 .transcript { min-height: 42px; max-height: 80px; overflow: auto; margin: 9px 0 0; font-size: 13px; line-height: 1.65; }

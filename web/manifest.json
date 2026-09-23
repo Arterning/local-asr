@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Live Video Subtitle",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Capture the current tab and display local real-time ASR subtitles.",
   "minimum_chrome_version": "116",
   "permissions": [

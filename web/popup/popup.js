@@ -6,6 +6,7 @@ const elements = {
   toggle: document.querySelector("#toggleButton"),
   transcript: document.querySelector("#transcript"),
   copy: document.querySelector("#copyButton"),
+  history: document.querySelector("#historyButton"),
   fontSize: document.querySelector("#fontSize"),
   fontSizeValue: document.querySelector("#fontSizeValue"),
   position: document.querySelector("#position"),
@@ -93,6 +94,10 @@ elements.copy.addEventListener("click", async () => {
   await navigator.clipboard.writeText(text);
   elements.copy.textContent = "已复制";
   setTimeout(() => { elements.copy.textContent = "复制"; }, 1200);
+});
+
+elements.history.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "OPEN_HISTORY" });
 });
 
 for (const element of [elements.serverUrl, elements.position, elements.keepAudio]) {

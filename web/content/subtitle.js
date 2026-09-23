@@ -3,6 +3,7 @@ let host = null;
 let finalLine = "";
 let settings = { fontSize: 28, position: "bottom", opacity: 78 };
 let hideTimer = null;
+let trackingVideo = false;
 
 function ensureOverlay() {
   if (host?.isConnected) return host;
@@ -50,6 +51,7 @@ function applySettings() {
 }
 
 function render(state) {
+  trackingVideo = state.status === "capturing" || state.status === "connecting";
   ensureOverlay();
   const wrap = host.shadowRoot.querySelector(".wrap");
   const final = host.shadowRoot.querySelector(".final");
@@ -102,3 +104,20 @@ chrome.runtime.sendMessage({ type: "GET_STATE" }).then((response) => {
   settings = { ...settings, ...response.settings };
   if (response.state.tabId) render(response.state);
 }).catch(() => {});
+
+function reportVideoState() {
+  if (!trackingVideo) return;
+  const videos = [...document.querySelectorAll("video")];
+  const video = videos.sort((a, b) => (b.clientWidth * b.clientHeight) - (a.clientWidth * a.clientHeight))[0];
+  if (!video) return;
+  chrome.runtime.sendMessage({
+    type: "VIDEO_STATE",
+    currentTime: video.currentTime,
+    duration: Number.isFinite(video.duration) ? video.duration : null,
+    paused: video.paused,
+    playbackRate: video.playbackRate,
+  }).catch(() => {});
+}
+
+setInterval(reportVideoState, 500);
+reportVideoState();
