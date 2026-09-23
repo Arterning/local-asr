@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Live Subtitle</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">LOCAL ASR</p>
+          <h1>Live Subtitle</h1>
+        </div>
+        <div class="status" id="status"><span></span><b>未启动</b></div>
+      </header>
+
+      <section class="card tab-card">
+        <p class="label">当前页面</p>
+        <p id="tabTitle" class="tab-title">正在读取标签页…</p>
+      </section>
+
+      <section class="card server-card">
+        <label class="label" for="serverUrl">识别服务</label>
+        <input id="serverUrl" type="url" spellcheck="false" value="ws://127.0.0.1:8000/ws/asr">
+        <p id="errorMessage" class="error" hidden></p>
+      </section>
+
+      <button id="toggleButton" class="primary" type="button">开始识别</button>
+
+      <section class="card transcript-card">
+        <div class="section-heading">
+          <p class="label">最近识别</p>
+          <button id="copyButton" class="text-button" type="button">复制</button>
+        </div>
+        <p id="transcript" class="transcript empty">识别结果将在这里显示</p>
+      </section>
+
+      <details class="settings">
+        <summary>字幕设置</summary>
+        <div class="settings-body">
+          <label>
+            <span>字号 <output id="fontSizeValue">28px</output></span>
+            <input id="fontSize" type="range" min="18" max="48" step="1" value="28">
+          </label>
+          <label>
+            <span>显示位置</span>
+            <select id="position">
+              <option value="bottom">底部</option>
+              <option value="middle">中部</option>
+              <option value="top">顶部</option>
+            </select>
+          </label>
+          <label>
+            <span>背景透明度 <output id="opacityValue">78%</output></span>
+            <input id="opacity" type="range" min="20" max="95" step="1" value="78">
+          </label>
+          <label class="switch-row">
+            <span>继续播放原声</span>
+            <input id="keepAudio" type="checkbox" checked>
+          </label>
+        </div>
+      </details>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

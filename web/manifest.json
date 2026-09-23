@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Live Video Subtitle",
+  "version": "0.1.0",
+  "description": "Capture the current tab and display local real-time ASR subtitles.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "activeTab",
+    "offscreen",
+    "storage",
+    "tabCapture"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Live Video Subtitle",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://www.bilibili.com/*",
+        "https://bilibili.com/*"
+      ],
+      "js": ["content/subtitle.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:*"
+  }
+}
