@@ -1,0 +1,13 @@
+[project]
+name = "funasr-api"
+version = "0.1.0"
+description = "FunASR two-pass streaming ASR backend compatible with the browser extension"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "funasr==1.4.16",
+    "huggingface-hub>=0.34,<2",
+    "numpy>=1.26,<3",
+    "uvicorn[standard]>=0.30,<1",
+]
