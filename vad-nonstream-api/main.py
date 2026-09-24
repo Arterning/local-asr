@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -40,12 +41,19 @@ import sherpa_onnx
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-LOGGER = logging.getLogger("vad-nonstream-api")
+LOGGER = logging.getLogger("uvicorn.error")
 API_DIR = Path(__file__).resolve().parent
 MODEL_DIR = API_DIR / "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"
 DEFAULT_ASR_MODEL = MODEL_DIR / "model.int8.onnx"
 DEFAULT_TOKENS = MODEL_DIR / "tokens.txt"
 DEFAULT_VAD_MODEL = MODEL_DIR / "silero_vad.onnx"
+DEFAULT_PUNCT_MODEL = (
+    API_DIR.parent
+    / "api"
+    / "model"
+    / "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8"
+    / "model.int8.onnx"
+)
 SAMPLE_RATE = 16_000
 
 
@@ -93,13 +101,30 @@ def create_vad_config() -> sherpa_onnx.VadModelConfig:
     )
 
 
+def create_punctuation() -> sherpa_onnx.OfflinePunctuation:
+    model = _path_from_env("PUNCT_MODEL", DEFAULT_PUNCT_MODEL)
+    if not Path(model).is_file():
+        raise FileNotFoundError(f"Punctuation model not found: {model}")
+    config = sherpa_onnx.OfflinePunctuationConfig(
+        model=sherpa_onnx.OfflinePunctuationModelConfig(
+            ct_transformer=model,
+            num_threads=int(os.getenv("PUNCT_NUM_THREADS", "1")),
+            provider=os.getenv("PUNCT_PROVIDER", "cpu"),
+        )
+    )
+    return sherpa_onnx.OfflinePunctuation(config)
+
+
 def decode_samples(
-    recognizer: sherpa_onnx.OfflineRecognizer, samples: np.ndarray
+    recognizer: sherpa_onnx.OfflineRecognizer,
+    punctuation: sherpa_onnx.OfflinePunctuation,
+    samples: np.ndarray,
 ) -> str:
     stream = recognizer.create_stream()
     stream.accept_waveform(SAMPLE_RATE, samples)
     recognizer.decode_stream(stream)
-    return stream.result.text.strip()
+    text = stream.result.text.strip()
+    return punctuation.add_punctuation(text).strip() if text else ""
 
 
 @asynccontextmanager
@@ -107,8 +132,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     LOGGER.info("Loading SenseVoice model from %s", _path_from_env("SENSE_VOICE_MODEL", DEFAULT_ASR_MODEL))
     app.state.recognizer = await asyncio.to_thread(create_recognizer)
     app.state.vad_config = await asyncio.to_thread(create_vad_config)
+    app.state.punctuation = await asyncio.to_thread(create_punctuation)
     app.state.decode_lock = asyncio.Lock()
-    LOGGER.info("SenseVoice and Silero VAD loaded")
+    LOGGER.info("SenseVoice, Silero VAD, and punctuation model loaded")
     yield
 
 
@@ -128,12 +154,15 @@ async def health() -> dict[str, Any]:
         "sample_rate": SAMPLE_RATE,
         "model_loaded": hasattr(app.state, "recognizer"),
         "vad_loaded": hasattr(app.state, "vad_config"),
+        "punctuation_loaded": hasattr(app.state, "punctuation"),
     }
 
 
 async def recognize(app: FastAPI, samples: np.ndarray) -> str:
     async with app.state.decode_lock:
-        return await asyncio.to_thread(decode_samples, app.state.recognizer, samples)
+        return await asyncio.to_thread(
+            decode_samples, app.state.recognizer, app.state.punctuation, samples
+        )
 
 
 async def emit_final_segments(websocket: WebSocket, vad: sherpa_onnx.VoiceActivityDetector) -> bool:
@@ -154,11 +183,15 @@ async def emit_final_segments(websocket: WebSocket, vad: sherpa_onnx.VoiceActivi
 async def vad_nonstreaming_asr(websocket: WebSocket) -> None:
     """Receive PCM16 chunks and return sentence-level SenseVoice results."""
     await websocket.accept()
+    connection_id = f"{id(websocket):x}"
+    connected_at = time.monotonic()
+    received_samples = 0
+    LOGGER.info("ASR WebSocket connected: id=%s client=%s", connection_id, websocket.client)
     vad = sherpa_onnx.VoiceActivityDetector(
         app.state.vad_config,
         buffer_size_in_seconds=float(os.getenv("VAD_BUFFER_SECONDS", "120")),
     )
-    partial_interval = int(float(os.getenv("PARTIAL_INTERVAL_SECONDS", "1.5")) * SAMPLE_RATE)
+    partial_interval = int(float(os.getenv("PARTIAL_INTERVAL_SECONDS", "0")) * SAMPLE_RATE)
     last_partial_samples = 0
     last_partial_text = ""
 
@@ -173,6 +206,12 @@ async def vad_nonstreaming_asr(websocket: WebSocket) -> None:
         while True:
             message = await websocket.receive()
             if message["type"] == "websocket.disconnect":
+                LOGGER.warning(
+                    "ASR WebSocket disconnect message: id=%s code=%s reason=%s",
+                    connection_id,
+                    message.get("code"),
+                    message.get("reason", ""),
+                )
                 break
 
             chunk = message.get("bytes")
@@ -191,6 +230,7 @@ async def vad_nonstreaming_asr(websocket: WebSocket) -> None:
                     await websocket.send_json({"type": "error", "message": "PCM16 chunk has an odd byte length"})
                     continue
                 samples = np.frombuffer(chunk, dtype="<i2").astype(np.float32) / 32768.0
+                received_samples += samples.size
                 vad.accept_waveform(samples)
 
             had_final = await emit_final_segments(websocket, vad)
@@ -198,7 +238,7 @@ async def vad_nonstreaming_asr(websocket: WebSocket) -> None:
                 last_partial_samples = 0
                 last_partial_text = ""
 
-            if not finishing and vad.is_speech_detected():
+            if partial_interval > 0 and not finishing and vad.is_speech_detected():
                 current = vad.current_segment
                 current_samples = np.asarray(current.samples, dtype=np.float32).copy()
                 if current_samples.size - last_partial_samples >= partial_interval:
@@ -211,14 +251,26 @@ async def vad_nonstreaming_asr(websocket: WebSocket) -> None:
             if finishing:
                 await websocket.send_json({"type": "finished"})
                 break
-    except WebSocketDisconnect:
-        pass
+    except WebSocketDisconnect as exc:
+        LOGGER.warning(
+            "ASR WebSocket disconnected: id=%s code=%s reason=%s",
+            connection_id,
+            exc.code,
+            getattr(exc, "reason", ""),
+        )
     except Exception as exc:
         LOGGER.exception("VAD + SenseVoice WebSocket failed")
         try:
             await websocket.send_json({"type": "error", "message": str(exc)})
         except Exception:
             pass
+    finally:
+        LOGGER.info(
+            "ASR WebSocket closed: id=%s duration=%.1fs audio=%.1fs",
+            connection_id,
+            time.monotonic() - connected_at,
+            received_samples / SAMPLE_RATE,
+        )
 
 
 def run() -> None:

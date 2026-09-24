@@ -41,9 +41,10 @@ ws://127.0.0.1:8000/ws/asr
 - 输入仍是 16 kHz、单声道、PCM signed 16-bit little-endian
 - 输出仍为 `ready`、`partial`、`final`、`finished` 和 `error`
 
-SenseVoice 是非流式模型。本服务会每隔约 1.5 秒对当前语音段重新识别并发送
-partial；当 VAD 检测到静音或达到最长语音长度时发送 final。相比原 Zipformer，
-延迟更高，但完整句子的上下文更充分。
+SenseVoice 是非流式模型。默认在 VAD 检测到静音或达到最长语音长度后发送
+final，不重复推理增长中的语音段，以避免长时间运行时产生积压。相比原
+Zipformer，延迟更高，但完整句子的上下文更充分。输出会经过原项目的中英标点
+恢复模型。
 
 ## 环境变量
 
@@ -60,6 +61,9 @@ partial；当 VAD 检测到静音或达到最长语音长度时发送 final。�
 | `VAD_MIN_SILENCE` | `0.6` 秒 |
 | `VAD_MIN_SPEECH` | `0.25` 秒 |
 | `VAD_MAX_SPEECH` | `20` 秒 |
-| `PARTIAL_INTERVAL_SECONDS` | `1.5` 秒 |
+| `PARTIAL_INTERVAL_SECONDS` | `0`，默认关闭重复 partial 推理 |
+| `PUNCT_MODEL` | 默认复用 `../api/model` 中的标点模型 |
+| `PUNCT_PROVIDER` | `cpu` |
 
-如果只想在一句结束后返回结果，可以把 `PARTIAL_INTERVAL_SECONDS` 设置得很大。
+如果需要实验性 partial，可以将 `PARTIAL_INTERVAL_SECONDS` 设为 `2` 或更大；
+它会反复识别当前增长中的整段音频，CPU 较慢时不建议开启。

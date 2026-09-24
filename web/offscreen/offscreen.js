@@ -71,13 +71,18 @@ function connectWebSocket(serverUrl) {
         console.warn("Invalid ASR message", error);
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       websocket = null;
       if (!intentionallyStopped) {
         intentionallyStopped = true;
         closeResources();
         intentionallyStopped = false;
-        reportStatus("error", "识别服务连接已断开");
+        const detail = [
+          `code=${event.code}`,
+          event.reason ? `reason=${event.reason}` : "",
+          `clean=${event.wasClean}`,
+        ].filter(Boolean).join(", ");
+        reportStatus("error", `识别服务连接已断开（${detail}）`);
       }
     };
   });
