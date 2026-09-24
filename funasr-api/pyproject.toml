@@ -9,5 +9,6 @@ dependencies = [
     "funasr==1.4.16",
     "huggingface-hub>=0.34,<2",
     "numpy>=1.26,<3",
+    "torch>=2.2,<3",
     "uvicorn[standard]>=0.30,<1",
 ]

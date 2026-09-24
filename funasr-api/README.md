@@ -53,13 +53,27 @@ uv sync
 
 项目固定使用 `funasr==1.4.16`，避免不同服务器自动安装到不同版本。模型文件也建议在测试通过后记录 Hugging Face commit SHA 和文件校验值。
 
-由于不同 GPU 服务器需要的 PyTorch/CUDA wheel 可能不同，不在项目里强制固定 CUDA wheel。安装后务必检查：
+`torch` 是项目的直接依赖。默认情况下，`uv sync` 会从 PyPI 安装符合当前 Linux/Python 环境的 PyTorch。安装后务必检查：
 
 ```bash
 uv run python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
 ```
 
 最后一项必须为 `True`。如果不是，需要按照服务器 CUDA 环境重新安装对应的 PyTorch GPU wheel，然后再启动服务。
+
+如果默认 PyTorch wheel 与服务器驱动不兼容，先通过 `nvidia-smi` 查看驱动支持的 CUDA 版本，再选择 PyTorch 官方提供的后端。例如 uv 支持自动选择当前驱动兼容的后端：
+
+```bash
+uv pip install --reinstall torch --torch-backend=auto
+```
+
+也可以明确指定后端，例如：
+
+```bash
+uv pip install --reinstall torch --torch-backend=cu128
+```
+
+指定版本前应确认服务器驱动兼容该 CUDA runtime。不要根据服务器是否安装 CUDA Toolkit 来判断，应优先查看 `nvidia-smi` 显示的驱动及其支持版本。
 
 ## 启动
 
