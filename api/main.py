@@ -47,12 +47,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 LOGGER = logging.getLogger("asr-api")
 API_DIR = Path(__file__).resolve().parent
 DEFAULT_MODEL_DIR = (
-    API_DIR
+    API_DIR.parent
     / "model"
     / "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
 )
 DEFAULT_PUNCTUATION_MODEL = (
-    API_DIR
+    API_DIR.parent
     / "model"
     / "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8"
     / "model.int8.onnx"

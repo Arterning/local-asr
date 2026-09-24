@@ -1,7 +1,7 @@
 # Streaming ASR API
 
 FastAPI WebSocket service using the sherpa-onnx streaming transducer files in
-`model/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20`.
+`../model/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20`.
 
 ## Run
 
@@ -36,11 +36,11 @@ and receive `{"type":"finished"}`.
 
 ## Configuration
 
-The ASR model defaults to `api/model/sherpa-onnx-streaming-zipformer-bilingual-
+The ASR model defaults to `model/sherpa-onnx-streaming-zipformer-bilingual-
 zh-en-2023-02-20`. Override these environment variables if needed:
 `ASR_MODEL_DIR`, `ASR_TOKENS`, `ASR_ENCODER`, `ASR_DECODER`,
 `ASR_JOINER`, `ASR_NUM_THREADS`, `ASR_PROVIDER`, and `ASR_DECODING_METHOD`.
-The punctuation model defaults to `api/model/sherpa-onnx-punct-ct-transformer-
+The punctuation model defaults to `model/sherpa-onnx-punct-ct-transformer-
 zh-en-vocab272727-2024-04-12-int8/model.int8.onnx`; override it with
 `PUNCT_MODEL` and tune its CPU threads with `PUNCT_NUM_THREADS`.
 

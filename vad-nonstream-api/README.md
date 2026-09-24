@@ -9,7 +9,7 @@ PCM16 音频流 → Silero VAD 切句 → SenseVoice 非流式识别 → partial
 ## 模型文件
 
 ```text
-vad-nonstream-api/
+model/
 └── sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/
     ├── model.int8.onnx
     ├── silero_vad.onnx
@@ -62,7 +62,7 @@ Zipformer，延迟更高，但完整句子的上下文更充分。输出会经�
 | `VAD_MIN_SPEECH` | `0.25` 秒 |
 | `VAD_MAX_SPEECH` | `20` 秒 |
 | `PARTIAL_INTERVAL_SECONDS` | `0`，默认关闭重复 partial 推理 |
-| `PUNCT_MODEL` | 默认复用 `../api/model` 中的标点模型 |
+| `PUNCT_MODEL` | 默认使用根目录 `model/` 中的标点模型 |
 | `PUNCT_PROVIDER` | `cpu` |
 
 如果需要实验性 partial，可以将 `PARTIAL_INTERVAL_SECONDS` 设为 `2` 或更大；

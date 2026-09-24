@@ -43,14 +43,13 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 LOGGER = logging.getLogger("uvicorn.error")
 API_DIR = Path(__file__).resolve().parent
-MODEL_DIR = API_DIR / "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"
+MODEL_ROOT = API_DIR.parent / "model"
+MODEL_DIR = MODEL_ROOT / "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"
 DEFAULT_ASR_MODEL = MODEL_DIR / "model.int8.onnx"
 DEFAULT_TOKENS = MODEL_DIR / "tokens.txt"
 DEFAULT_VAD_MODEL = MODEL_DIR / "silero_vad.onnx"
 DEFAULT_PUNCT_MODEL = (
-    API_DIR.parent
-    / "api"
-    / "model"
+    MODEL_ROOT
     / "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8"
     / "model.int8.onnx"
 )

@@ -25,17 +25,17 @@ YouTube 当前标签页的音频，将其转换为 16 kHz PCM 并通过 WebSocke
 ├── api/
 │   ├── main.py
 │   ├── pyproject.toml
-│   ├── uv.lock
-│   └── model/
-│       ├── sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/
-│       │   ├── encoder.onnx
-│       │   ├── decoder.onnx
-│       │   ├── joiner.onnx
-│       │   └── tokens.txt
-│       └── sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8/
-│           └── model.int8.onnx
+│   └── uv.lock
 ├── vad-nonstream-api/
-│   ├── main.py
+│   └── main.py
+├── model/
+│   ├── sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/
+│   │   ├── encoder.onnx
+│   │   ├── decoder.onnx
+│   │   ├── joiner.onnx
+│   │   └── tokens.txt
+│   ├── sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8/
+│   │   └── model.int8.onnx
 │   └── sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/
 │       ├── model.int8.onnx
 │       ├── tokens.txt
