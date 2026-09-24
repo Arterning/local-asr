@@ -1,0 +1,13 @@
+[project]
+name = "vad-nonstream-api"
+version = "0.1.0"
+description = "VAD + SenseVoice non-streaming ASR with a streaming-compatible WebSocket API"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "numpy>=1.24,<3",
+    "onnxruntime>=1.29,<1.30; sys_platform == 'win32'",
+    "sherpa-onnx==1.13.8",
+    "uvicorn[standard]>=0.30,<1",
+]

@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+*.pyc
+
+sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09

@@ -34,6 +34,12 @@ YouTube 当前标签页的音频，将其转换为 16 kHz PCM 并通过 WebSocke
 │       │   └── tokens.txt
 │       └── sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8/
 │           └── model.int8.onnx
+├── vad-nonstream-api/
+│   ├── main.py
+│   └── sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/
+│       ├── model.int8.onnx
+│       ├── tokens.txt
+│       └── silero_vad.onnx
 └── web/
     ├── manifest.json
     ├── background.js
@@ -96,6 +102,19 @@ WebSocket 地址：
 ```text
 ws://127.0.0.1:8000/ws/asr
 ```
+
+### 切换到 VAD + SenseVoice
+
+项目还包含一个接口完全兼容的准确率优先后端。先停止原 `api`，然后运行：
+
+```powershell
+cd C:\Users\ningh\Desktop\model\vad-nonstream-api
+uv sync
+uv run uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+它使用 Silero VAD 切分语音，再由 SenseVoice 非流式识别。浏览器扩展地址不变，
+无需修改前端。详细说明见 [vad-nonstream-api/README.md](vad-nonstream-api/README.md)。
 
 ## 安装浏览器扩展
 
