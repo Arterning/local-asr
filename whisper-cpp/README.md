@@ -75,3 +75,46 @@ python whisper-cpp/transcribe.py "D:/video/test.mp4" `
 ```powershell
 python whisper-cpp/transcribe.py --help
 ```
+
+## 4. VAD 准实时 WebSocket 服务
+
+`api.py` 与现有浏览器插件使用相同协议：接收 16 kHz、单声道 PCM16 二进制帧，
+通过 WebRTC VAD 检测停顿，然后将短语音段交给 `whisper-cli` 转写。这个模式只在
+句末发送 `final`，不发送逐字 `partial`。
+
+安装依赖并启动：
+
+```powershell
+cd whisper-cpp
+uv sync
+uv run python api.py
+```
+
+默认地址：
+
+```text
+HTTP health: http://127.0.0.1:8000/health
+WebSocket:    ws://127.0.0.1:8000/ws/asr
+```
+
+默认读取项目根目录的 `model/ggml-small.bin`，并从 `PATH` 查找 `whisper-cli`。
+可使用环境变量调整：
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `WHISPER_MODEL` | `../model/ggml-small.bin` | 模型路径 |
+| `WHISPER_LANGUAGE` | `zh` | 识别语言，设为 `auto` 可自动检测 |
+| `WHISPER_THREADS` | `0` | CPU 线程数，0 表示使用 whisper.cpp 默认值 |
+| `WHISPER_NO_GPU` | `false` | 是否强制 CPU 推理 |
+| `VAD_MODE` | `2` | WebRTC VAD 激进程度，范围 0～3 |
+| `VAD_END_SILENCE_MS` | `600` | 连续静音多久后提交一句 |
+| `VAD_MAX_SEGMENT_MS` | `20000` | 单个语音段的最大长度 |
+| `WHISPER_MAX_CONCURRENCY` | `1` | 同时运行的 whisper-cli 进程数 |
+
+PowerShell 示例：
+
+```powershell
+$env:WHISPER_LANGUAGE = "zh"
+$env:VAD_END_SILENCE_MS = "500"
+uv run python api.py
+```

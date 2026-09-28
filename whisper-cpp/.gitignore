@@ -2,3 +2,6 @@ __pycache__/
 *.wav
 *.txt
 models/
+
+*.mp4
+*.txt

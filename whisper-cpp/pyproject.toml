@@ -1,0 +1,10 @@
+[project]
+name = "whisper-cpp-api"
+version = "0.1.0"
+description = "VAD-segmented whisper.cpp WebSocket API"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "webrtcvad-wheels>=2.0.14,<3",
+]
