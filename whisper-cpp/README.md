@@ -28,12 +28,12 @@ cmake -B build -DGGML_CUDA=ON
 cmake --build build --config Release -j
 ```
 
-另外需要安装 `ffmpeg`，并确保 `ffmpeg` 命令位于 `PATH`，或者运行脚本时通过
-`--ffmpeg` 指定其路径。
+另外需要安装 `ffmpeg`，并确保 `ffmpeg` 和 `whisper-cli` 命令都位于 `PATH`。
 
 ## 2. 下载模型
 
-在 whisper.cpp 仓库中下载多语言模型，例如：
+默认模型路径为项目根目录的 `model/ggml-small.bin`。在 whisper.cpp 仓库中下载
+多语言模型，例如：
 
 ```powershell
 ./models/download-ggml-model.cmd small
@@ -48,14 +48,18 @@ cmake --build build --config Release -j
 
 ```powershell
 python whisper-cpp/transcribe.py "D:/video/test.mp4" `
-  --model "D:/whisper.cpp/models/ggml-small.bin" `
-  --whisper-cli "D:/whisper.cpp/build/bin/Release/whisper-cli.exe" `
   --language zh `
   --output "D:/video/test.txt"
 ```
 
-如果 `whisper-cli` 已在 `PATH` 中，可以省略 `--whisper-cli`。不指定 `--output`
-时，文本默认保存在输入文件旁边，例如 `test.mp4` 会生成 `test.txt`。
+不指定 `--output` 时，文本默认保存在输入文件旁边，例如 `test.mp4` 会生成
+`test.txt`。需要使用其他模型时，可以覆盖默认路径：
+
+```powershell
+python whisper-cpp/transcribe.py "D:/video/test.mp4" `
+  --model "D:/models/ggml-large-v3-q5_0.bin" `
+  --language zh
+```
 
 常用选项：
 

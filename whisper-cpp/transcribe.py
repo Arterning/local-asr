@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_MODEL = PROJECT_ROOT / "model" / "ggml-small.bin"
 
 
 def executable(value: str, label: str) -> str:
@@ -38,7 +40,12 @@ def parse_args() -> argparse.Namespace:
         description="使用 whisper.cpp 将一个音频或视频文件转写为纯文本。"
     )
     parser.add_argument("input", type=Path, help="输入音频或视频文件")
-    parser.add_argument("--model", required=True, type=Path, help="GGML/GGUF Whisper 模型文件")
+    parser.add_argument(
+        "--model",
+        type=Path,
+        default=DEFAULT_MODEL,
+        help=f"GGML/GGUF Whisper 模型文件（默认: {DEFAULT_MODEL}）",
+    )
     parser.add_argument("--output", type=Path, help="输出文本路径，默认与输入文件同名")
     parser.add_argument(
         "--language",
@@ -46,16 +53,6 @@ def parse_args() -> argparse.Namespace:
         help="音频语言，例如 zh、en 或 auto（默认: auto）",
     )
     parser.add_argument("--threads", type=int, help="whisper.cpp 使用的 CPU 线程数")
-    parser.add_argument(
-        "--whisper-cli",
-        default=os.getenv("WHISPER_CLI", "whisper-cli"),
-        help="whisper-cli 可执行文件路径（也可设置 WHISPER_CLI）",
-    )
-    parser.add_argument(
-        "--ffmpeg",
-        default=os.getenv("FFMPEG", "ffmpeg"),
-        help="ffmpeg 可执行文件路径（也可设置 FFMPEG）",
-    )
     parser.add_argument("--no-gpu", action="store_true", help="强制 whisper.cpp 使用 CPU")
     parser.add_argument("--keep-wav", type=Path, help="保留转换后的 16 kHz 单声道 WAV")
     return parser.parse_args()
@@ -78,8 +75,8 @@ def main() -> int:
     if args.threads is not None and args.threads < 1:
         raise ValueError("--threads 必须大于 0")
 
-    ffmpeg = executable(args.ffmpeg, "ffmpeg")
-    whisper_cli = executable(args.whisper_cli, "whisper-cli")
+    ffmpeg = executable("ffmpeg", "ffmpeg")
+    whisper_cli = executable("whisper-cli", "whisper-cli")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="whisper-cpp-") as temp_dir:
