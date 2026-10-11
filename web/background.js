@@ -1,5 +1,11 @@
 import { appendSegment, createSession, getSession, getSegments, importSubtitleSession, listSessions, updateSession } from "./storage/transcript-db.js";
 import { discoverTracks, downloadTrack } from "./bilibili.js";
+import * as youtube from "./youtube.js";
+
+const subtitleProviders = {
+  bilibili: { discoverTracks, downloadTrack, host: /^https:\/\/(www\.)?bilibili\.com\//, label: "B 站" },
+  youtube: { ...youtube, host: /^https:\/\/(www\.)?youtube\.com\//, label: "YouTube" },
+};
 
 const DEFAULT_SETTINGS = {
   serverUrl: "ws://127.0.0.1:8000/ws/asr",
@@ -85,8 +91,12 @@ async function startCapture(tabId) {
   }
 }
 
-async function startNative(tabId, trackId) {
+async function startNative(tabId, trackId, providerName = "bilibili") {
   await stateReady;
+  const provider = subtitleProviders[providerName];
+  if (!provider) throw new Error("请选择有效的字幕来源");
+  const selectedTab = await chrome.tabs.get(tabId);
+  if (!provider.host.test(selectedTab.url || "")) throw new Error(`请在 ${provider.label} 视频页面读取字幕，或切换字幕来源`);
   if (nativeBusy) throw new Error("正在读取字幕，请稍候");
   nativeBusy = true;
   let generation;
@@ -94,23 +104,25 @@ async function startNative(tabId, trackId) {
     await stopCapture();
     generation = ++nativeGeneration;
     const tab = await chrome.tabs.get(tabId);
-    if (!/^https:\/\/(www\.)?bilibili\.com\//.test(tab.url || "")) throw new Error("请在 B 站视频页面读取字幕");
-    state = { ...EMPTY_STATE, status: "loading", source: "native", tabId, tabTitle: tab.title };
+    state = { ...EMPTY_STATE, status: "loading", source: "native", provider: providerName, tabId, tabTitle: tab.title };
     await broadcastState();
-    const info = await discoverTracks(tabId);
+    const info = await provider.discoverTracks(tabId);
     const track = trackId ? info.tracks.find(t => t.id === trackId)
-      : info.tracks.find(t => t.language === "zh-CN") || info.tracks.find(t => t.language.includes("zh")) || info.tracks[0];
+      : info.tracks.find(t => t.language === "zh-CN" && !t.automatic)
+        || info.tracks.find(t => t.language.includes("zh") && !t.automatic)
+        || info.tracks.find(t => !t.automatic) || info.tracks[0];
     if (!track) throw new Error("字幕轨已变化，请重新读取");
-    const segments = await downloadTrack(track);
+    const segments = await provider.downloadTrack(track, tabId);
     if (generation !== nativeGeneration) return;
     const current = await chrome.tabs.get(tabId);
     if (current.url !== info.url) throw new Error("视频已切换，请重新读取字幕");
     // Verify the content script is available before saving and starting playback.
     await chrome.tabs.sendMessage(tabId, { type: "NATIVE_PING" });
     const session = await importSubtitleSession({ title: `${info.title} · ${track.label}`,
-      url: info.url, platform: "bilibili", language: track.language }, segments);
+      url: info.url, platform: providerName, language: track.language, automatic: !!track.automatic,
+      source: `${providerName}-subtitle` }, segments);
     if (generation !== nativeGeneration) return;
-    state = { ...EMPTY_STATE, status: "subtitles", source: "native", tabId, tabTitle: info.title,
+    state = { ...EMPTY_STATE, status: "subtitles", source: "native", provider: providerName, tabId, tabTitle: info.title,
       sessionId: session.id, tracks: info.tracks.map(({ url, ...rest }) => rest), trackId: track.id,
       videoKey: info.key, sourceUrl: info.url, segmentCount: segments.length };
     await chrome.tabs.sendMessage(tabId, { type: "NATIVE_SUBTITLES", segments, key: info.key });
@@ -167,7 +179,7 @@ async function handleOffscreenStatus(message) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.target === "offscreen") return false;
   if (message.type === "START_NATIVE") {
-    startNative(message.tabId, message.trackId).then(() => sendResponse({ ok: true }))
+    startNative(message.tabId, message.trackId, message.provider).then(() => sendResponse({ ok: true }))
       .catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
   }

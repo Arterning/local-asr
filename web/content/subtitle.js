@@ -7,6 +7,10 @@ let trackingVideo = false;
 let nativeSegments = null;
 let nativeKey = null;
 function currentVideoKey() {
+  const url = new URL(location.href);
+  if (/^(www\.)?youtube\.com$/.test(url.hostname)) {
+    return url.pathname === "/watch" ? `youtube:${url.searchParams.get("v")}` : null;
+  }
   return `${location.pathname.match(/\/video\/(BV[\w]+)/i)?.[1]}:${Number(new URL(location.href).searchParams.get("p") || 1)}`;
 }
 function renderNative() {

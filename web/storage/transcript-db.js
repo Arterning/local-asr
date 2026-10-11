@@ -66,7 +66,7 @@ export async function importSubtitleSession(metadata, segments) {
     const now = Date.now();
     const session = { ...metadata, id: crypto.randomUUID(), createdAt: now, updatedAt: now,
       completedAt: now, status: "completed", segmentCount: segments.length,
-      lastVideoTime: segments.at(-1)?.endTime ?? null, source: "bilibili-subtitle" };
+      lastVideoTime: segments.at(-1)?.endTime ?? null, source: metadata.source || "bilibili-subtitle" };
     transaction.objectStore("sessions").add(session);
     segments.forEach((segment, index) => transaction.objectStore("segments").add({
       ...segment, sessionId: session.id, sequence: index + 1, createdAt: now,

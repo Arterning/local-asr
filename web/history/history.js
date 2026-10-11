@@ -101,7 +101,9 @@ async function selectSession(id) {
   ui.detail.hidden = false;
   ui.title.value = selected.title;
   ui.platform.textContent = selected.platform === "bilibili" ? "哔哩哔哩" : selected.platform === "youtube" ? "YouTube" : "视频";
-  if (selected.source === "bilibili-subtitle") ui.platform.textContent += ` · 视频字幕 · ${selected.language}`;
+  if (["bilibili-subtitle", "youtube-subtitle"].includes(selected.source)) {
+    ui.platform.textContent += ` · 视频字幕 · ${selected.language}${selected.automatic ? " · 自动生成" : ""}`;
+  }
   ui.createdAt.textContent = dateFormat.format(selected.createdAt);
   ui.status.textContent = statusText[selected.status] || selected.status;
   ui.source.disabled = !selected.url;

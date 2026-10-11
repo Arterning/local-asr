@@ -28,7 +28,7 @@ let nativeText = "";
 let previewSession = null;
 const running = state => ["capturing", "connecting", "loading", "subtitles"].includes(state.status);
 function renderMode() {
-  const native = elements.source.value === "native";
+  const native = elements.source.value !== "asr";
   elements.serverCard.hidden = native;
   elements.sourceHint.textContent = native
     ? "直接读取字幕和时间轴，无需启动识别服务。无可用字幕时，可切换本地语音识别。"
@@ -47,6 +47,7 @@ const statusLabels = {
 
 function renderState(state) {
   currentState = state;
+  if (running(state)) elements.source.value = state.source === "native" ? (state.provider === "youtube" ? "youtube" : "native") : "asr";
   const status = statusLabels[state.status] ? state.status : "idle";
   elements.status.className = `status ${status}`;
   elements.status.querySelector("b").textContent = statusLabels[status];
@@ -113,8 +114,8 @@ async function initialize() {
   [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   elements.tabTitle.textContent = activeTab?.title || "无法读取当前标签页";
   const response = await chrome.runtime.sendMessage({ type: "GET_STATE" });
-  elements.source.value = response.state.source === "native" ? "native"
-    : running(response.state) ? "asr" : /https:\/\/(www\.)?bilibili\.com\//.test(activeTab?.url || "") ? "native" : "asr";
+  const { subtitleSource = "native" } = await chrome.storage.local.get("subtitleSource");
+  elements.source.value = ["native", "youtube", "asr"].includes(subtitleSource) ? subtitleSource : "native";
   renderState(response.state);
   renderSettings(response.settings);
 }
@@ -126,7 +127,8 @@ elements.toggle.addEventListener("click", async () => {
       await chrome.runtime.sendMessage({ type: "STOP_CAPTURE" });
     } else {
       await saveSettings();
-      const response = await chrome.runtime.sendMessage({ type: elements.source.value === "native" ? "START_NATIVE" : "START_CAPTURE", tabId: activeTab.id });
+      const response = await chrome.runtime.sendMessage({ type: elements.source.value !== "asr" ? "START_NATIVE" : "START_CAPTURE",
+        provider: elements.source.value === "youtube" ? "youtube" : "bilibili", tabId: activeTab.id });
       if (!response.ok) throw new Error(response.error);
     }
   } catch (error) {
@@ -149,13 +151,17 @@ elements.history.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "OPEN_HISTORY" });
 });
 
-elements.source.addEventListener("change", renderMode);
+elements.source.addEventListener("change", () => {
+  renderMode();
+  chrome.storage.local.set({ subtitleSource: elements.source.value });
+});
 elements.track.addEventListener("change", async () => {
   const trackId = elements.track.value;
   elements.track.disabled = true;
   elements.toggle.disabled = true;
   try {
-    const response = await chrome.runtime.sendMessage({ type: "START_NATIVE", tabId: currentState.tabId, trackId });
+    const response = await chrome.runtime.sendMessage({ type: "START_NATIVE", tabId: currentState.tabId, trackId,
+      provider: currentState.provider || "bilibili" });
     if (!response.ok) throw new Error(response.error);
   } catch (error) { elements.error.hidden = false; elements.error.textContent = error.message; }
   finally { elements.track.disabled = false; elements.toggle.disabled = false; }

@@ -17,7 +17,9 @@
     "https://www.bilibili.com/*",
     "https://bilibili.com/*",
     "https://api.bilibili.com/*",
-    "https://*.hdslb.com/*"
+    "https://*.hdslb.com/*",
+    "https://www.youtube.com/*",
+    "https://youtube.com/*"
   ],
   "background": {
     "service_worker": "background.js",
