@@ -6,13 +6,18 @@
   "minimum_chrome_version": "116",
   "permissions": [
     "activeTab",
+    "scripting",
     "offscreen",
     "storage",
     "tabCapture"
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "https://www.bilibili.com/*",
+    "https://bilibili.com/*",
+    "https://api.bilibili.com/*",
+    "https://*.hdslb.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -35,6 +40,6 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:* ws://172.16.1.16:8000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:* ws://172.16.1.16:8000 https://*.hdslb.com https://*.bilibili.com"
   }
 }

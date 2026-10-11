@@ -58,6 +58,24 @@ export async function createSession(metadata) {
   return session;
 }
 
+export async function importSubtitleSession(metadata, segments) {
+  const db = await openDatabase();
+  try {
+    const transaction = db.transaction(["sessions", "segments"], "readwrite");
+    const done = transactionDone(transaction);
+    const now = Date.now();
+    const session = { ...metadata, id: crypto.randomUUID(), createdAt: now, updatedAt: now,
+      completedAt: now, status: "completed", segmentCount: segments.length,
+      lastVideoTime: segments.at(-1)?.endTime ?? null, source: "bilibili-subtitle" };
+    transaction.objectStore("sessions").add(session);
+    segments.forEach((segment, index) => transaction.objectStore("segments").add({
+      ...segment, sessionId: session.id, sequence: index + 1, createdAt: now,
+    }));
+    await done;
+    return session;
+  } finally { db.close(); }
+}
+
 export async function getSession(id) {
   const db = await openDatabase();
   const transaction = db.transaction("sessions", "readonly");

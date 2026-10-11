@@ -40,3 +40,9 @@ input[type="range"] { width: 100%; accent-color: #687cff; }
 select { border: 1px solid #303746; border-radius: 8px; background: #171b24; color: #e4e7ee; padding: 7px; }
 .switch-row { display: flex !important; align-items: center; justify-content: space-between; }
 .switch-row input { width: 34px; height: 18px; accent-color: #687cff; }
+[hidden] { display: none !important; }
+#sourceMode, #subtitleTrack { width: 100%; margin-top: 8px; }
+.hint { font-size: 12px; line-height: 1.6; color: #a5adbd; margin: 9px 0 0; }
+#errorMessage { margin: 0 0 12px; }
+.status.subtitles span { background: #42d392; }
+.status.loading span { background: #f2b84b; }

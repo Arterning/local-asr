@@ -21,23 +21,37 @@
         <p id="tabTitle" class="tab-title">正在读取标签页…</p>
       </section>
 
-      <section class="card server-card">
-        <label class="label" for="serverUrl">识别服务</label>
-        <input id="serverUrl" type="url" spellcheck="false" value="ws://127.0.0.1:8000/ws/asr">
-        <p id="errorMessage" class="error" hidden></p>
+      <section class="card">
+        <label class="label" for="sourceMode">字幕来源</label>
+        <select id="sourceMode">
+          <option value="native">B 站视频字幕</option>
+          <option value="asr">本地语音识别</option>
+        </select>
+        <p class="hint" id="sourceHint">直接读取字幕和时间轴，无需启动识别服务。</p>
+        <div id="trackControls" hidden>
+          <label class="label" for="subtitleTrack">字幕语言</label>
+          <select id="subtitleTrack"></select>
+          <p class="hint" id="subtitleSummary"></p>
+        </div>
       </section>
 
-      <button id="toggleButton" class="primary" type="button">开始识别</button>
+      <section class="card server-card" id="serverCard" hidden>
+        <label class="label" for="serverUrl">识别服务</label>
+        <input id="serverUrl" type="url" spellcheck="false" value="ws://127.0.0.1:8000/ws/asr">
+      </section>
+      <p id="errorMessage" class="error" role="alert" hidden></p>
+
+      <button id="toggleButton" class="primary" type="button">读取视频字幕</button>
 
       <section class="card transcript-card">
         <div class="section-heading">
-          <p class="label">最近识别</p>
+          <p class="label">字幕预览</p>
           <button id="copyButton" class="text-button" type="button">复制</button>
         </div>
         <p id="transcript" class="transcript empty">识别结果将在这里显示</p>
       </section>
 
-      <button id="historyButton" class="secondary" type="button">查看完整识别记录</button>
+      <button id="historyButton" class="secondary" type="button">查看全文 / 导出字幕</button>
 
       <details class="settings">
         <summary>字幕设置</summary>

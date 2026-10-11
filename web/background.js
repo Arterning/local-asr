@@ -1,4 +1,5 @@
-import { appendSegment, createSession, getSession, listSessions, updateSession } from "./storage/transcript-db.js";
+import { appendSegment, createSession, getSession, getSegments, importSubtitleSession, listSessions, updateSession } from "./storage/transcript-db.js";
+import { discoverTracks, downloadTrack } from "./bilibili.js";
 
 const DEFAULT_SETTINGS = {
   serverUrl: "ws://127.0.0.1:8000/ws/asr",
@@ -14,6 +15,8 @@ const EMPTY_STATE = {
 };
 let state = { ...EMPTY_STATE };
 let segmentSaveQueue = Promise.resolve();
+let nativeGeneration = 0;
+let nativeBusy = false;
 const stateReady = chrome.storage.session.get("runtimeState").then(async ({ runtimeState }) => {
   if (runtimeState) {
     state = { ...EMPTY_STATE, ...runtimeState };
@@ -82,18 +85,59 @@ async function startCapture(tabId) {
   }
 }
 
+async function startNative(tabId, trackId) {
+  await stateReady;
+  if (nativeBusy) throw new Error("正在读取字幕，请稍候");
+  nativeBusy = true;
+  let generation;
+  try {
+    await stopCapture();
+    generation = ++nativeGeneration;
+    const tab = await chrome.tabs.get(tabId);
+    if (!/^https:\/\/(www\.)?bilibili\.com\//.test(tab.url || "")) throw new Error("请在 B 站视频页面读取字幕");
+    state = { ...EMPTY_STATE, status: "loading", source: "native", tabId, tabTitle: tab.title };
+    await broadcastState();
+    const info = await discoverTracks(tabId);
+    const track = trackId ? info.tracks.find(t => t.id === trackId)
+      : info.tracks.find(t => t.language === "zh-CN") || info.tracks.find(t => t.language.includes("zh")) || info.tracks[0];
+    if (!track) throw new Error("字幕轨已变化，请重新读取");
+    const segments = await downloadTrack(track);
+    if (generation !== nativeGeneration) return;
+    const current = await chrome.tabs.get(tabId);
+    if (current.url !== info.url) throw new Error("视频已切换，请重新读取字幕");
+    // Verify the content script is available before saving and starting playback.
+    await chrome.tabs.sendMessage(tabId, { type: "NATIVE_PING" });
+    const session = await importSubtitleSession({ title: `${info.title} · ${track.label}`,
+      url: info.url, platform: "bilibili", language: track.language }, segments);
+    if (generation !== nativeGeneration) return;
+    state = { ...EMPTY_STATE, status: "subtitles", source: "native", tabId, tabTitle: info.title,
+      sessionId: session.id, tracks: info.tracks.map(({ url, ...rest }) => rest), trackId: track.id,
+      videoKey: info.key, sourceUrl: info.url, segmentCount: segments.length };
+    await chrome.tabs.sendMessage(tabId, { type: "NATIVE_SUBTITLES", segments, key: info.key });
+    await broadcastState();
+  } catch (error) {
+    if (generation === nativeGeneration) {
+      state = { ...state, status: "error", error: error.message || "字幕读取失败" };
+      await broadcastState();
+    }
+    throw error;
+  } finally { nativeBusy = false; }
+}
+
 async function finishSession(status = "completed") {
+  if (state.source === "native") return;
   if (state.sessionId) await updateSession(state.sessionId, { status, completedAt: Date.now() });
 }
 
 async function stopCapture() {
   await stateReady;
+  nativeGeneration++;
   const previousTabId = state.tabId;
   await finishSession(state.status === "error" ? "interrupted" : "completed");
   await chrome.runtime.sendMessage({ target: "offscreen", type: "STOP_CAPTURE" }).catch(() => {});
   state = { ...EMPTY_STATE, final: state.final };
   await broadcastState();
-  if (previousTabId !== null) chrome.tabs.sendMessage(previousTabId, { type: "CAPTURE_STOPPED" }).catch(() => {});
+  if (previousTabId !== null) await chrome.tabs.sendMessage(previousTabId, { type: "CAPTURE_STOPPED" }).catch(() => {});
 }
 
 async function saveFinalSegment(text) {
@@ -113,6 +157,7 @@ async function saveFinalSegment(text) {
 
 async function handleOffscreenStatus(message) {
   await stateReady;
+  if (state.source === "native" || state.status === "idle") return;
   if (message.status === "error") await finishSession("interrupted");
   state = { ...state, status: message.status, error: message.error || "" };
   if (message.status === "idle") state = { ...EMPTY_STATE, final: state.final };
@@ -121,6 +166,20 @@ async function handleOffscreenStatus(message) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.target === "offscreen") return false;
+  if (message.type === "START_NATIVE") {
+    startNative(message.tabId, message.trackId).then(() => sendResponse({ ok: true }))
+      .catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (message.type === "GET_NATIVE_SUBTITLES") {
+    stateReady.then(async () => sendResponse(sender.tab?.id === state.tabId && state.status === "subtitles"
+      ? { segments: await getSegments(state.sessionId), key: state.videoKey } : {}));
+    return true;
+  }
+  if (message.type === "NATIVE_VIDEO_CHANGED") {
+    stateReady.then(() => { if (sender.tab?.id === state.tabId && state.source === "native") stopCapture(); });
+    return false;
+  }
   if (message.type === "GET_STATE") {
     stateReady.then(async () => {
       const visibleState = sender.tab && sender.tab.id !== state.tabId ? { ...EMPTY_STATE } : { ...state };
@@ -167,6 +226,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "ASR_RESULT") {
     stateReady.then(async () => {
+      if (state.source === "native" || !state.sessionId) return;
       if (message.resultType === "partial") state.partial = message.text;
       if (message.resultType === "final") {
         state.final = message.text;
@@ -186,6 +246,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   stateReady.then(() => {
+    if (tabId === state.tabId && state.source === "native" && changeInfo.url && state.sourceUrl
+      && changeInfo.url !== state.sourceUrl) { stopCapture(); return; }
     if (tabId === state.tabId && changeInfo.status === "loading") {
       chrome.tabs.sendMessage(tabId, { type: "STATE_CHANGED", state }).catch(() => {});
     }

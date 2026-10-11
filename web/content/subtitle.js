@@ -4,6 +4,28 @@ let finalLine = "";
 let settings = { fontSize: 28, position: "bottom", opacity: 78 };
 let hideTimer = null;
 let trackingVideo = false;
+let nativeSegments = null;
+let nativeKey = null;
+function currentVideoKey() {
+  return `${location.pathname.match(/\/video\/(BV[\w]+)/i)?.[1]}:${Number(new URL(location.href).searchParams.get("p") || 1)}`;
+}
+function renderNative() {
+  if (!nativeSegments) return;
+  if (currentVideoKey() !== nativeKey) {
+    nativeSegments = null;
+    render({ status: "idle" });
+    chrome.runtime.sendMessage({ type: "NATIVE_VIDEO_CHANGED" }).catch(() => {});
+    return;
+  }
+  const video = [...document.querySelectorAll("video")].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
+  const text = video ? nativeSegments.filter(s => s.startTime <= video.currentTime && video.currentTime < s.endTime).map(s => s.text).join("\n") : "";
+  ensureOverlay();
+  clearTimeout(hideTimer);
+  host.shadowRoot.querySelector(".final").textContent = text;
+  host.shadowRoot.querySelector(".partial").textContent = "";
+  host.shadowRoot.querySelector(".notice").textContent = "";
+  host.shadowRoot.querySelector(".wrap").classList.toggle("hidden", !text);
+}
 
 function ensureOverlay() {
   if (host?.isConnected) return host;
@@ -51,6 +73,8 @@ function applySettings() {
 }
 
 function render(state) {
+  if (state.status === "subtitles") { renderNative(); return; }
+  nativeSegments = null;
   trackingVideo = state.status === "capturing" || state.status === "connecting";
   ensureOverlay();
   const wrap = host.shadowRoot.querySelector(".wrap");
@@ -82,7 +106,16 @@ function render(state) {
   }
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "NATIVE_PING") { sendResponse({ ok: true }); return; }
+  if (message.type === "NATIVE_SUBTITLES") {
+    nativeSegments = message.segments;
+    nativeKey = message.key;
+    trackingVideo = false;
+    renderNative();
+    sendResponse({ ok: true });
+    return;
+  }
   if (message.type === "STATE_CHANGED") render(message.state);
   if (message.type === "SETTINGS_CHANGED") {
     settings = { ...settings, ...message.settings };
@@ -100,8 +133,13 @@ chrome.storage.local.get(settings).then((stored) => {
   settings = { ...settings, ...stored };
 });
 
-chrome.runtime.sendMessage({ type: "GET_STATE" }).then((response) => {
+chrome.runtime.sendMessage({ type: "GET_STATE" }).then(async (response) => {
   settings = { ...settings, ...response.settings };
+  if (response.state.status === "subtitles") {
+    const data = await chrome.runtime.sendMessage({ type: "GET_NATIVE_SUBTITLES" });
+    nativeSegments = data.segments || null;
+    nativeKey = data.key;
+  }
   if (response.state.tabId) render(response.state);
 }).catch(() => {});
 
@@ -120,4 +158,5 @@ function reportVideoState() {
 }
 
 setInterval(reportVideoState, 500);
+setInterval(renderNative, 100);
 reportVideoState();
