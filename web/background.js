@@ -58,17 +58,28 @@ async function broadcastState() {
 }
 
 function platformFromUrl(url) {
-  if (url.includes("youtube.com")) return "youtube";
-  if (url.includes("bilibili.com")) return "bilibili";
+  const hostname = new URL(url).hostname;
+  if (/(^|\.)youtube\.com$/.test(hostname)) return "youtube";
+  if (/(^|\.)bilibili\.com$/.test(hostname)) return "bilibili";
   return "unknown";
+}
+
+async function ensureSubtitleScript(tabId) {
+  const response = await chrome.tabs.sendMessage(tabId, { type: "NATIVE_PING" }).catch(() => null);
+  if (response?.ok) return;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ["content/subtitle.js"] });
+  } catch {
+    throw new Error("无法在此页面显示字幕。浏览器内部页面及扩展商店等受保护页面不支持，请打开普通网页后重试");
+  }
 }
 
 async function startCapture(tabId) {
   await stateReady;
-  if (state.status !== "idle" && state.tabId !== null) await stopCapture();
   const tab = await chrome.tabs.get(tabId);
-  const supported = /^https:\/\/(www\.)?(youtube\.com|bilibili\.com)\//.test(tab.url || "");
-  if (!supported) throw new Error("请在 YouTube 或哔哩哔哩视频页面使用此插件");
+  if (!/^https?:\/\//.test(tab.url || "")) throw new Error("本地语音识别支持普通 HTTP/HTTPS 网页，不支持浏览器内部页面或本地文件");
+  await ensureSubtitleScript(tabId);
+  if (state.status !== "idle" && state.tabId !== null) await stopCapture();
 
   const session = await createSession({
     title: tab.title || "当前视频",
@@ -258,6 +269,11 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   stateReady.then(() => {
+    // activeTab access may be revoked by navigation. End the session cleanly;
+    // the next click grants access to inject the overlay on the new page.
+    if (tabId === state.tabId && state.source !== "native" && changeInfo.status === "loading") {
+      stopCapture(); return;
+    }
     if (tabId === state.tabId && state.source === "native" && changeInfo.url && state.sourceUrl
       && changeInfo.url !== state.sourceUrl) { stopCapture(); return; }
     if (tabId === state.tabId && changeInfo.status === "loading") {

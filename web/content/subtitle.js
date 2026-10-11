@@ -1,3 +1,7 @@
+(() => {
+// Static platform injection and user-triggered injection may race.
+if (globalThis.__liveSubtitleInstalled) return;
+globalThis.__liveSubtitleInstalled = true;
 const HOST_ID = "live-subtitle-extension-host";
 let host = null;
 let finalLine = "";
@@ -164,3 +168,4 @@ function reportVideoState() {
 setInterval(reportVideoState, 500);
 setInterval(renderNative, 100);
 reportVideoState();
+})();

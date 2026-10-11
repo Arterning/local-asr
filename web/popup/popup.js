@@ -32,7 +32,7 @@ function renderMode() {
   elements.serverCard.hidden = native;
   elements.sourceHint.textContent = native
     ? "直接读取字幕和时间轴，无需启动识别服务。无可用字幕时，可切换本地语音识别。"
-    : "实时识别当前标签页声音，需要启动本地识别服务。";
+    : "支持普通网站的标签页声音，不限 B 站或 YouTube；需要启动本地识别服务。";
   if (!running(currentState)) elements.toggle.textContent = native ? "读取视频字幕" : "开始识别";
 }
 

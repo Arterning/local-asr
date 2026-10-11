@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const source = (await readFile(new URL("../background.js", import.meta.url), "utf8")).replace(/^import .*;\r?\n/gm, "");
-function harness({ provider = "youtube", deferred = false } = {}) {
-  const url = provider === "youtube" ? "https://www.youtube.com/watch?v=testVideo01" : "https://www.bilibili.com/video/BV1234567890";
+function harness({ provider = "youtube", deferred = false, pageUrl, installed = false, denied = false } = {}) {
+  const url = pageUrl || (provider === "youtube" ? "https://www.youtube.com/watch?v=testVideo01" : "https://www.bilibili.com/video/BV1234567890");
   const saved = [];
   const calls = [];
   let release;
@@ -16,13 +16,16 @@ function harness({ provider = "youtube", deferred = false } = {}) {
   });
   const bili = adapter("bilibili");
   const context = vm.createContext({
-    console, youtube: adapter("youtube"), ...bili,
+    console, URL, youtube: adapter("youtube"), ...bili,
+    createSession: async metadata => { saved.push({ metadata }); return { id: "asr-1", title: metadata.title }; },
     listSessions: async () => [], updateSession: async () => {},
     importSubtitleSession: async (metadata, segments) => { saved.push({ metadata, segments }); return { id: "session-1" }; },
     chrome: {
       storage: { session: { get: async () => ({}), set: async () => {} }, local: { get: async () => ({}) } },
-      runtime: { sendMessage: async () => {}, onMessage: { addListener() {} } },
-      tabs: { get: async () => ({ id: 1, url, title: "Title" }), sendMessage: async () => ({}),
+      runtime: { sendMessage: async () => ({ ok: true }), getURL: path => path, getContexts: async () => [{}], onMessage: { addListener() {} } },
+      scripting: { executeScript: async () => { if (denied) throw new Error("Cannot access"); calls.push("inject"); } },
+      tabCapture: { getMediaStreamId: async () => { calls.push("capture"); return "stream-1"; } },
+      tabs: { get: async () => ({ id: 1, url, title: "Title" }), sendMessage: async () => ({ ok: installed }),
         onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
     },
   });
@@ -37,6 +40,28 @@ test("explicit YouTube selection routes, saves source metadata and retains the p
   assert.equal(saved[0].metadata.source, "youtube-subtitle");
   assert.equal(saved[0].metadata.platform, "youtube");
   assert.equal(vm.runInContext("state.provider", context), "youtube");
+});
+
+test("local ASR captures ordinary HTTP and HTTPS sites and injects the overlay on demand", async () => {
+  for (const pageUrl of ["https://example.org/video", "http://example.org/radio"]) {
+    const { context, calls, saved } = harness({ pageUrl });
+    await vm.runInContext("startCapture(1)", context);
+    assert.deepEqual(calls, ["inject", "capture"]);
+    assert.equal(saved[0].metadata.platform, "unknown");
+    assert.equal(vm.runInContext("state.sessionId", context), "asr-1");
+  }
+});
+
+test("local ASR reuses an existing overlay and rejects restricted pages before capture", async () => {
+  const existing = harness({ installed: true });
+  await vm.runInContext("startCapture(1)", existing.context);
+  assert.deepEqual(existing.calls, ["capture"]);
+  const internal = harness({ pageUrl: "chrome://settings" });
+  await assert.rejects(vm.runInContext("startCapture(1)", internal.context), /普通 HTTP\/HTTPS/);
+  assert.equal(internal.saved.length, 0);
+  const protectedPage = harness({ denied: true });
+  await assert.rejects(vm.runInContext("startCapture(1)", protectedPage.context), /受保护页面/);
+  assert.equal(protectedPage.saved.length, 0);
 });
 
 test("Bilibili routing remains available and the wrong source is rejected before stopping", async () => {
